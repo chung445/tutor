@@ -1,0 +1,90 @@
+import { useAuth } from "../context/AuthContext";
+import { Permission, hasPermission, hasAnyPermission } from "../utils/permissions";
+import LoginRegister from "./login-register";
+
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requiredPermissions?: Permission | Permission[]; // If provided, user must have these permissions
+  requireAll?: boolean; // If true, user must have ALL permissions; if false, ANY permission
+  allowedRoles?: string[]; // If provided, user must have one of these roles
+  fallback?: React.ReactNode; // Component to show if user lacks permissions
+}
+
+export function ProtectedRoute({
+  children,
+  requiredPermissions,
+  requireAll = true,
+  allowedRoles,
+  fallback
+}: ProtectedRouteProps) {
+  const { user, isLoading, isAuthenticated } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100">
+            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          </div>
+          <p className="text-gray-600 font-medium">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginRegister />;
+  }
+
+  // Check roles if specified
+  if (allowedRoles && user) {
+    if (!allowedRoles.includes(user.role)) {
+      return (
+        fallback ?? (
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">Truy cập bị từ chối</h2>
+              <p className="text-gray-600">Bạn không có quyền truy cập chức năng này</p>
+            </div>
+          </div>
+        )
+      );
+    }
+  }
+
+  // Check permissions if required
+  if (requiredPermissions && user) {
+    const permissions = Array.isArray(requiredPermissions)
+      ? requiredPermissions
+      : [requiredPermissions];
+
+    const hasAccess = requireAll
+      ? permissions.every(perm => hasPermission(user.role, perm))
+      : permissions.some(perm => hasPermission(user.role, perm));
+
+    if (!hasAccess) {
+      return (
+        fallback ?? (
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">Truy cập bị từ chối</h2>
+              <p className="text-gray-600">Bạn không có quyền truy cập chức năng này</p>
+            </div>
+          </div>
+        )
+      );
+    }
+  }
+
+  return <>{children}</>;
+}
